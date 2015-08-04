@@ -10,3 +10,4 @@ Experimental sequencer for [sound.io](http://github.com/soundio).
     cd ..
     open index.html
 
+See [index.html](https://github.com/grimborg/soundio-sequencer/blob/master/index.html) for an example.
