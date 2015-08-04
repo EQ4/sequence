@@ -29,7 +29,6 @@ var chordModeIncrs = {
 };
 
 var chordNotes = function (chord) {
-    console.log(chord);
     chord.keycentre = chord.keycentre + '4';
     var note = function (number) {
         return {
@@ -40,13 +39,10 @@ var chordNotes = function (chord) {
         };
     };
     var notes = [];
-    console.log('notetonumber', chord.keycentre);
-    console.log('notetonumber', MIDI.noteToNumber(chord.keycentre));
     var baseNoteNumber = MIDI.noteToNumber(chord.keycentre);
     chordModeIncrs[chord.mode].forEach(function (incr) {
         notes.push(note(baseNoteNumber + incr));
     });
-    console.log('notes', notes);
     return notes;
 };
 
@@ -58,7 +54,6 @@ function Sequencer(oscillator, clock) {
 // Play a musicJSON object
 Sequencer.prototype.play = function (music) {
     var self = this;
-    console.log('playing', music);
     music.sequence.forEach(function (item) {
         var parsed;
         if (item.type) {
@@ -86,7 +81,6 @@ Sequencer.prototype.playSequence = function (sequence) {
 
 Sequencer.prototype.playNote = function (note) {
     var self = this;
-    console.log('playing', note);
     this.clock.cue(note.time, function (time) {
         self.oscillator.trigger(time, 'noteon', note.number, 1);
     });
@@ -96,7 +90,5 @@ Sequencer.prototype.playNote = function (note) {
 };
 
 Sequencer.prototype.playChord = function (chord) {
-    console.log('not playing chord', chord);
-
     this.play({sequence: chordNotes(chord)});
 };
