@@ -77,30 +77,47 @@
 		// TODO: Audio Object is not picking up default values grrrrrrr
 		this.rate = options.rate;
 
-		// Listen to parent clock's events
-		clock.on(this);
-
 		var sequence = this;
 		var startBeat;
 
-		function spawn(time, type, data) {
-			var child = new Sequence(sequence, data);
+		// Delegate parent clock's events
+		clock.on(this);
+
+		// If parent sequence stops, also stop this. Since parent sequence
+		// is already responsible for cueing, it should have uncued all
+		// this sequence's cues already.
+		clock
+		.on('stop', function(clock, time) {
+			startBeat = undefined;
+		})
+		.on('recue', function(clock, beat) {
+			// TODO: Recue everything after beat (although aren't they already
+			// recued by the master recue process?)
+		});
+
+		function spawn(time, type, data, rate) {
+			var settings = {};
+
+			if (rate) { settings.rate = rate; }
+
+			var childSequence = new Sequence(sequence, data, settings);
 
 			// Listen to children's events and retrigger them
-			child.plug(trigger);
-			child.start(sequence.beatAtTime(time));
+			childSequence.plug(trigger);
+			childSequence.start(sequence.beatAtTime(time));
 		}
 
 		function trigger(time, type) {
 			var listeners = getListeners(sequence).slice();
 			var fn, childSequence;
 
-			for (fn of listeners) {
-				fn.apply(sequence, arguments);
-			}
-
 			if (type === 'sequence') {
 				spawn.apply(null, arguments);
+			}
+			else {
+				for (fn of listeners) {
+					fn.apply(sequence, arguments);
+				}
 			}
 		}
 

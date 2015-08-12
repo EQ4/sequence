@@ -17,7 +17,15 @@ var sequence = new Sequence(clock, [
     [2, "sequence", [
         [0, "noteon", 64, 0.6667],
         [1, "noteoff", 64],
-    ]]
+        [2, "sequence", [
+            [0, "noteon", 80, 0.6667],
+            [1, "noteoff", 80],
+            [2, "sequence", [
+                [0, "noteon", 120, 0.6667],
+                [1, "noteoff", 120]
+            ]]
+        ], 0.5]
+    ], 2]
 ]);
 
 sequence.plug(function(time, type, number, velocity) {
