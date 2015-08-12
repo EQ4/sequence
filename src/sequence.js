@@ -80,7 +80,7 @@
 				var e;
 
 				for (e of this) {
-					this.cue(e[0], trigger, e[1], e[2], e[3], e[4]);
+					this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5]);
 				}
 
 				//deleteTimesAfterBeat(this, 0);
@@ -94,9 +94,9 @@
 			},
 
 			cue: function(beat, fn) {
-				var args = Array.prototype.slice.apply(arguments);
-				args[0] = parentBeatAtBeat(clock, this, beat);
-				clock.cue.apply(clock, args);
+				// Replace beat with parent beat and call parent .cue()
+				arguments[0] = parentBeatAtBeat(clock, this, beat);
+				clock.cue.apply(clock, arguments);
 				return this;
 			}
 		});
