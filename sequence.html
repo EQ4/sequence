@@ -1,0 +1,30 @@
+<script src="modules/collection/js/object.assign.js"></script>
+<script src="modules/collection/js/observe.js"></script>
+<script src="modules/collection/js/mixin.array.js"></script>
+<script src="modules/collection/js/mixin.events.js"></script>
+<script src="modules/collection/js/collection.js"></script>
+<script src="modules/audio-object/js/audio-object.js"></script>
+<script src="modules/clock/js/clock.js"></script>
+
+<script src="src/sequence.js"></script>
+
+<script>
+var audio = new window.AudioContext();
+var clock = new Clock(audio);
+var sequence = new Sequence(clock, [
+    [0, "noteon", 49, 0.6667],
+    [1, "noteoff", 49],
+    [2, "sequence", [
+        [0, "noteon", 64, 0.6667],
+        [1, "noteoff", 64],
+    ]]
+]);
+
+sequence.plug(function(time, type, number, velocity) {
+    console.log(time, type, number, velocity);
+});
+
+setTimeout(function() {
+    sequence.start();
+}, 2000);
+</script>
