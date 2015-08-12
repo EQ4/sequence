@@ -1,7 +1,24 @@
+
+(function(window) {
+	if (!window.console || !window.console.log) { return; }
+
+	console.log('Sequence');
+	console.log('http://github.com/soundio/sequencer');
+	console.log('–––––––––––––––––––––––––––––––––––');
+})(this);
+
 (function(window) {
 	"use strict";
 
 	var assign = Object.assign;
+
+	var defaults = {
+		rate: 1
+	};
+
+	function isDefined(val) {
+		return val !== undefined && val !== null;
+	}
 
 	function getListeners(object) {
 		if (!object.listeners) {
@@ -11,17 +28,24 @@
 		return object.listeners;
 	}
 
-	function parentBeatAtBeat(clock, sequence, beat) {
-		var rate = sequence.rate;
-		return clock.beatAtTime(sequence.startTime) + beat * rate ;
+	function clockBeatAtBeat(sequence, beat) {
+		return sequence.startBeat + beat / sequence.rate ;
 	}
 
-	function Sequence(clock, data) {
+	function beatAtClockBeat(sequence, clockBeat) {
+		return (clockBeat - sequence.startBeat) * sequence.rate ;
+	}
+
+	function Sequence(clock, data, settings) {
+		var options = assign({}, defaults, settings);
+
 		var rateNode     = audio.createGain();
 		var durationNode = audio.createGain();
 
 		rateNode.channelCount = 1;
 		durationNode.channelCount = 1;
+		rateNode.gain.value = options.rate;
+		durationNode.gain.value = 1 / options.rate;
 
 		// The rate of this sequence is a multiplier of the parent clock's rate
 		AudioObject.getOutput(clock, "rate").connect(rateNode);
@@ -44,21 +68,39 @@
 					// first set addRate to noop to avoid this.
 					//addRate(clock, cues, time, value);
 				},
-				defaultValue: 1,
+				value: options.rate,
 				curve: 'exponential',
 				duration: 0.004
 			}
 		});
 
-		var startTime = audio.currentTime;
-		var cues = [];
+		// TODO: Audio Object is not picking up default values grrrrrrr
+		this.rate = options.rate;
 
-		function trigger() {
+		// Listen to parent clock's events
+		clock.on(this);
+
+		var sequence = this;
+		var startBeat;
+
+		function spawn(time, type, data) {
+			var child = new Sequence(sequence, data);
+
+			// Listen to children's events and retrigger them
+			child.plug(trigger);
+			child.start(sequence.beatAtTime(time));
+		}
+
+		function trigger(time, type) {
 			var listeners = getListeners(sequence).slice();
-			var fn;
+			var fn, childSequence;
 
 			for (fn of listeners) {
-				fn.apply(this, arguments);
+				fn.apply(sequence, arguments);
+			}
+
+			if (type === 'sequence') {
+				spawn.apply(null, arguments);
 			}
 		}
 
@@ -67,21 +109,25 @@
 
 		Object.defineProperties(this, {
 			clock: { value: clock },
-			startTime: { get: function() { return startTime; }},
-			time: { get: function() { return audio.currentTime; }},
-			beat: { get: function() { return this.beatAtTime(audio.currentTime); }}
+			startBeat: { get: function() { return startBeat; }}
 		});
 
 		assign(this, {
-			start: function(time) {
-				startTime = isDefined(time) ? time : audio.currentTime ;
+			start: function(beat) {
+				startBeat = isDefined(beat) ? beat : this.clock.beat ;
 
-				var sequence = this;
+				var l = this.length;
+				var n = -1;
 				var e;
 
-				for (e of this) {
-					this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5]);
+				while (++n < l) {
+					e = this[n];
+					this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
 				}
+
+				//for (e of this) {
+				//	this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
+				//}
 
 				//deleteTimesAfterBeat(this, 0);
 				//recueAfterBeat(cues, this, 0);
@@ -90,20 +136,14 @@
 			},
 
 			stop: function(time) {
-				
-			},
-
-			cue: function(beat, fn) {
-				// Replace beat with parent beat and call parent .cue()
-				arguments[0] = parentBeatAtBeat(clock, this, beat);
-				clock.cue.apply(clock, arguments);
-				return this;
+				this.uncue(trigger);
+				startBeat = undefined;
 			}
 		});
 	}
 
-	assign(Sequence.prototype, Clock.prototype, {
-		on: function(fn) {
+	Object.defineProperties(assign(Sequence.prototype, Clock.prototype, {
+		plug: function(fn) {
 			var listeners = getListeners(this);
 
 			if (listeners.indexOf(fn) === -1) {
@@ -113,7 +153,7 @@
 			return this;
 		},
 
-		off: function(fn) {
+		unplug: function(fn) {
 			var listeners = getListeners(this);
 			var i = listeners.indexOf(fn);
 
@@ -122,6 +162,42 @@
 			}
 
 			return this;
+		},
+
+		beatAtTime: function(time) {
+			var clockBeat = this.clock.beatAtTime(time);
+			return beatAtClockBeat(this, clockBeat);
+		},
+
+		timeAtBeat: function(beat) {
+			var clockBeat = clockBeatAtBeat(this, beat);
+			return this.clock.timeAtBeat(clockBeat);
+		},
+
+		cue: function(beat, fn) {
+			// Replace beat with parent beat and call parent .cue()
+			arguments[0] = clockBeatAtBeat(this, beat);
+			this.clock.cue.apply(this.clock, arguments);
+			return this;
+		},
+
+		uncue: function(beat, fn) {
+			// TODO: how do we make sure only fns from this sequence are
+			// being uncued? Not a worry at the mo, because we are
+			// uncueing trigger, which only exists in this sequence...
+			// but what about outside calls?
+
+			if (typeof beat === 'number') {
+				beat = clockBeatAtBeat(this, beat);
+			}
+
+			this.clock.uncue(beat, fn);
+			return this;
 		}
+	}), {
+		startTime: { get: function() { return this.clock.timeAtBeat(this.startBeat); } },
+		beat: { get: function() { return beatAtClockBeat(this.clock.beat); } }
 	});
+
+	window.Sequence = Sequence;
 })(window);
