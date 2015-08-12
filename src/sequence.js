@@ -112,6 +112,8 @@
 			var listeners = getListeners(sequence).slice();
 			var fn, childSequence;
 
+			// Sequence control events are listened to by the sequencer and
+			// are not retransmitted
 			if (type === 'sequence') {
 				spawn.apply(null, arguments);
 			}
