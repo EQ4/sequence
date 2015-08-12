@@ -88,6 +88,7 @@
 		// this sequence's cues already.
 		clock
 		.on('stop', function(clock, time) {
+			this.uncue(trigger);
 			startBeat = undefined;
 		})
 		.on('recue', function(clock, beat) {
@@ -113,6 +114,9 @@
 
 			if (type === 'sequence') {
 				spawn.apply(null, arguments);
+			}
+			else if (type === 'stop') {
+				sequence.stop(time);
 			}
 			else {
 				for (fn of listeners) {
@@ -155,6 +159,7 @@
 			stop: function(time) {
 				this.uncue(trigger);
 				startBeat = undefined;
+				this.trigger('stop', time);
 			}
 		});
 	}
