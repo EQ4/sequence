@@ -13,7 +13,7 @@ Experimental sequencer for [sound.io](http://github.com/soundio).
 See [index.html](https://github.com/grimborg/soundio-sequencer/blob/master/index.html) for an example.
 
 
-# Sequence(clock, data, settings)
+## Sequence(clock, data, settings)
 
 To create a sequence call the <code>Sequence</code> constructor, passing in a
 clock.
