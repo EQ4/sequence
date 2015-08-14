@@ -130,6 +130,7 @@
 
 		// TODO: Audio Object is not picking up default values grrrrrrr
 		this.rate = options.rate;
+		this.notes = {};
 
 		var sequence = this;
 		var startBeat;
@@ -162,7 +163,7 @@
 			childSequence.start(sequence.beatAtTime(time));
 		}
 
-		function trigger(time, type) {
+		function trigger(time, type, number) {
 			var listeners = getListeners(sequence).slice();
 			var fn, childSequence, duration;
 
@@ -178,6 +179,14 @@
 				for (fn of listeners) {
 					fn.apply(sequence, arguments);
 				}
+			}
+
+			// Keep a record of current noteons
+			if (type === "noteon") {
+				sequence.notes[number] = true;
+			}
+			else if (type === "noteoff") {
+				delete sequence.notes[number];
 			}
 		}
 
@@ -220,6 +229,18 @@
 
 			stop: function(time) {
 				this.uncue(trigger);
+
+				var notes = this.notes;
+
+				this.cue(this.beat, function(time) {
+					var number;
+
+					for (number in notes) {
+						number = parseInt(number);
+						trigger(time, "noteoff", number);
+					}
+				});
+
 				startBeat = undefined;
 				this.playing = false;
 				Collection.prototype.trigger.call(this, 'stop', time);
