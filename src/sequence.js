@@ -21,11 +21,11 @@
 	}
 
 	function getListeners(object) {
-		if (!object.listeners) {
-			Object.defineProperty(object, 'listeners', { value: [] });
+		if (!object.sequenceListeners) {
+			Object.defineProperty(object, 'sequenceListeners', { value: [] });
 		}
 
-		return object.listeners;
+		return object.sequenceListeners;
 	}
 
 	function clockBeatAtBeat(sequence, beat) {
@@ -34,6 +34,53 @@
 
 	function beatAtClockBeat(sequence, clockBeat) {
 		return (clockBeat - sequence.startBeat) * sequence.rate ;
+	}
+
+	function mergeNoteEvents(data) {
+		var n = -1;
+		var m, e1, e2, e3;
+
+		while (++n < data.length) {
+			e1 = data[n];
+			if (e1[1] === "noteon") {
+				m = n - 1;
+				while (++m < data.length) {
+					e2 = data[m];
+					if (e2[1] === "noteoff" && e2[3] === e1[3]) {
+						e3 = e1.slice();
+						e3[1] = "note";
+						e3[4] = e2[0] - e1[0];
+
+						data.splice(n, 1, e3);
+						data.splice(m, 1);
+						break;
+					} 
+				}
+			}
+		}
+	}
+
+	function cue(sequence, e, trigger) {
+		if (e[1] === 'note') {
+			sequence.cue(e[0], trigger, 'noteon', e[2], e[3]);
+			sequence.cue(e[0] + e[4], trigger, 'noteoff', e[2]);
+		}
+		else {
+			sequence.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
+		}
+	}
+
+	function uncue(sequence, e, trigger) {
+		// TODO: This is dodgy, it will remove untelated events
+		// that happen to be at the same time. Uh-oh.
+
+		if (e[1] === 'note') {
+			sequence.uncue(e[0], trigger);
+			sequence.uncue(e[0] + e[4], trigger);
+		}
+		else {
+			sequence.uncue(e[0], trigger);
+		}
 	}
 
 	function Sequence(clock, data, settings) {
@@ -117,7 +164,7 @@
 
 		function trigger(time, type) {
 			var listeners = getListeners(sequence).slice();
-			var fn, childSequence;
+			var fn, childSequence, duration;
 
 			// Sequence control events are listened to by the sequencer and
 			// are not retransmitted
@@ -133,6 +180,9 @@
 				}
 			}
 		}
+
+		data = data.slice();
+		mergeNoteEvents(data);
 
 		// Set up sequence as a collection.
 		Collection.call(this, data || [], { index: 0 });
@@ -152,8 +202,11 @@
 
 				while (++n < l) {
 					e = this[n];
-					this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
+					cue(sequence, e, trigger);
 				}
+
+				this.playing = true;
+				Collection.prototype.trigger.call(this, 'start', beat);
 
 				//for (e of this) {
 				//	this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
@@ -168,7 +221,20 @@
 			stop: function(time) {
 				this.uncue(trigger);
 				startBeat = undefined;
-				this.trigger('stop', time);
+				this.playing = false;
+				Collection.prototype.trigger.call(this, 'stop', time);
+			}
+		});
+
+		this
+		.on('add', function(sequence, e) {
+			if (e[0] >= this.beat) {
+				cue(sequence, e, trigger);
+			}
+		})
+		.on('remove', function(sequence, e) {
+			if (e[0] >= this.beat) {
+				uncue(sequence, e, trigger);
 			}
 		});
 	}
@@ -224,10 +290,13 @@
 
 			this.clock.uncue(beat, fn);
 			return this;
-		}
+		},
+
+		on: Collection.prototype.on,
+		trigger: Collection.prototype.trigger
 	}), {
 		startTime: { get: function() { return this.clock.timeAtBeat(this.startBeat); } },
-		beat: { get: function() { return beatAtClockBeat(this.clock.beat); } }
+		beat: { get: function() { return beatAtClockBeat(this, this.clock.beat); } }
 	});
 
 	window.Sequence = Sequence;
