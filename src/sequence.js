@@ -232,6 +232,7 @@
 
 				var notes = this.notes;
 
+				// Stop currently playing notes
 				this.cue(this.beat, function(time) {
 					var number;
 
