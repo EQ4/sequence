@@ -20,19 +20,21 @@ clock.
 
     var audio = new window.AudioContext();
     var clock = new Clock(audio);
-    var sequence = new Sequence(clock, [
+    var sequence1 = new Sequence(clock, [
         [0, "noteon", 49, 0.2],
         [1, "noteoff", 49]
     ]);
     
-    sequence.start();
+    sequence1.start();
 
 A sequence itself is a form of clock, so dependent sequences can be created by
+passing in an existing sequence as the <code>clock</code> parameter.
 
-    var slaveSequence = new Sequence(sequence, [
+    var sequence2 = new Sequence(sequence, [
         [0, "noteon", 49, 0.2],
         [1, "noteoff", 49]
     ]);
 
-<code>slaveSequence</code> is now dependent upon <code>sequence</code>.
+<code>sequence2</code> is now slaved to <code>sequence1</code>. When
+<code>sequence1</code> stops, <code>sequence2</code> stops.
 
