@@ -5,7 +5,7 @@
 <script src="soundio/modules/collection/js/collection.js"></script>
 <script src="soundio/modules/audio-object/js/audio-object.js"></script>
 <script src="soundio/modules/midi/js/midi.js"></script>
-<script src="soundio/modules/midi/js/midi.utils.js"></script>
+<script src="soundio/modules/midi/js/midi-utils.js"></script>
 <script src="soundio/modules/clock/js/clock.js"></script>
 
 <script src="soundio/js/window.audiocontext.js"></script>
@@ -25,7 +25,7 @@
 <script src="soundio/js/soundio.saturate.js"></script>
 <script src="soundio/js/soundio.compress.js"></script>
 <script src="soundio/js/soundio.envelope.js"></script>
-<script src="soundio/js/soundio.oscillator.js"></script>
+<script src="soundio/js/soundio.tone-synth.js"></script>
 <script src="src/sequencer.js"></script>
 
 <script>
@@ -33,7 +33,7 @@
     "use strict";
     var soundio = window.Soundio({
         objects: [
-            {id: 1, type: "osc"},
+            {id: 1, type: "tone-synth"},
             {id: 2, type: "output"}
         ],
 
