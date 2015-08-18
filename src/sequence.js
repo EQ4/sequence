@@ -194,7 +194,7 @@
 		mergeNoteEvents(data);
 
 		// Set up sequence as a collection.
-		Collection.call(this, data || [], { index: 0 });
+		Collection.call(this, data || []);
 
 		Object.defineProperties(this, {
 			clock: { value: clock },
