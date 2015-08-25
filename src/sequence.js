@@ -16,16 +16,24 @@
 		rate: 1
 	};
 
+	var collectionSettings = {
+		sort: byTime
+	};
+
 	function isDefined(val) {
 		return val !== undefined && val !== null;
 	}
 
+	function byTime(a, b) {
+		return a[0] > b[0];
+	}
+
 	function getListeners(object) {
-		if (!object.sequenceListeners) {
-			Object.defineProperty(object, 'sequenceListeners', { value: [] });
+		if (!object.subscribers) {
+			Object.defineProperty(object, 'subscribers', { value: [] });
 		}
 
-		return object.sequenceListeners;
+		return object.subscribers;
 	}
 
 	function clockBeatAtBeat(sequence, beat) {
@@ -57,16 +65,6 @@
 					} 
 				}
 			}
-		}
-	}
-
-	function cue(sequence, e, trigger) {
-		if (e[1] === 'note') {
-			sequence.cue(e[0], trigger, 'noteon', e[2], e[3]);
-			sequence.cue(e[0] + e[4], trigger, 'noteoff', e[2]);
-		}
-		else {
-			sequence.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
 		}
 	}
 
@@ -155,34 +153,44 @@
 			var childSequence = new Sequence(sequence, data, settings);
 
 			// Listen to children's events and retrigger them
-			childSequence.plug(trigger);
+			childSequence.subscribe(trigger);
 			childSequence.start(sequence.beatAtTime(time));
+
+			sequence.trigger("spawn", childSequence);
 		}
 
-		function trigger(time, type, number) {
+		function publish(time, event, sequence) {
 			var listeners = getListeners(sequence).slice();
+			var e = event.slice();
 			var fn, childSequence, duration;
+
+			// Set the time in absolute time
+			e[0] = time;
+
+			// Set the duration in absolute time
+			if (e[1] === "note") {
+				e[4] = sequence.timeAtBeat(event[0] + event[4]) - e[0];
+			}
 
 			// Sequence control events are listened to by the sequencer and
 			// are not retransmitted
-			if (type === 'sequence') {
-				spawn.apply(null, arguments);
-			}
-			else if (type === 'stop') {
-				sequence.stop(time);
+			if (e[1] === 'sequence') {
+				spawn.apply(null, e);
 			}
 			else {
 				for (fn of listeners) {
-					fn.apply(sequence, arguments);
+					// Call fn(time, type, data...)
+					fn.apply(sequence, e);
 				}
 			}
 
 			// Keep a record of current noteons
-			if (type === "noteon") {
-				sequence.notes[number] = true;
+			// TODO: Sort this out!
+			if (e[1] === "note" || e[1] === "noteon") {
+				sequence.notes[e[2]] = true;
 			}
-			else if (type === "noteoff") {
-				delete sequence.notes[number];
+			else if (e[1] === "noteoff") {
+				delete sequence.notes[e[2]];
 			}
 		}
 
@@ -190,7 +198,7 @@
 		mergeNoteEvents(data);
 
 		// Set up sequence as a collection.
-		Collection.call(this, data || []);
+		Collection.call(this, data || [], collectionSettings);
 
 		Object.defineProperties(this, {
 			clock: { value: clock },
@@ -207,7 +215,7 @@
 
 				while (++n < l) {
 					e = this[n];
-					cue(sequence, e, trigger);
+					this.cue(e[0], publish, e, this);
 				}
 
 				this.playing = true;
@@ -224,19 +232,20 @@
 			},
 
 			stop: function(time) {
-				this.uncue(trigger);
-
+				var sequence = this;
 				var notes = this.notes;
 
-				// Stop currently playing notes
-				this.cue(this.beat, function(time) {
-					var number;
+				this.uncue(publish);
 
-					for (number in notes) {
-						number = parseInt(number);
-						trigger(time, "noteoff", number);
-					}
-				});
+//				// Stop currently playing notes
+//				this.cue(this.beat, function(time) {
+//					var number;
+//
+//					for (number in notes) {
+//						number = parseInt(number);
+//						publish(time, [time, "noteoff", number], sequence);
+//					}
+//				});
 
 				startBeat = undefined;
 				this.playing = false;
@@ -246,19 +255,19 @@
 
 		this
 		.on('add', function(sequence, e) {
-			if (e[0] >= this.beat) {
-				cue(sequence, e, trigger);
+			if (e[0] >= sequence.beat) {
+				sequence.cue(e[0], publish, e, sequence);
 			}
 		})
 		.on('remove', function(sequence, e) {
-			if (e[0] >= this.beat) {
-				uncue(sequence, e, trigger);
+			if (e[0] >= sequence.beat) {
+				sequence.uncue(e[0], publish, e, sequence);
 			}
 		});
 	}
 
 	Object.defineProperties(assign(Sequence.prototype, Clock.prototype, {
-		plug: function(fn) {
+		subscribe: function(fn) {
 			var listeners = getListeners(this);
 
 			if (listeners.indexOf(fn) === -1) {
@@ -268,7 +277,7 @@
 			return this;
 		},
 
-		unplug: function(fn) {
+		unsubscribe: function(fn) {
 			var listeners = getListeners(this);
 			var i = listeners.indexOf(fn);
 
@@ -323,128 +332,93 @@
 
 
 
-	function EnvelopeSequence(clock, data, settings) {
+
+
+
+
+	function publish(time, event, sequence) {
+		var listeners = getListeners(sequence).slice();
+		var e = event.slice();
+		var fn;
+
+		e[0] = time;
+
+		for (fn of listeners) {
+			// Call fn(time, type, data...)
+			fn.apply(sequence, e);
+		}
+	}
+
+	function EnvelopeSequence(clock, data) {
 		if (this === undefined || this === window) {
 			// If this is undefined the constructor has been called without the
 			// new keyword, or without a context applied. Do that now.
-			return new EnvelopeSequence(clock, data, settings);
+			return new EnvelopeSequence(clock, data);
 		}
 
 		var audio = clock.audio;
-		var options = assign({}, defaults, settings);
-
-		var sequence = this;
-		var startBeat;
-
-		// Delegate parent clock's events
-		clock.on(this);
-
-		// If parent sequence stops, also stop this. Since parent sequence
-		// is already responsible for cueing, it should have uncued all
-		// this sequence's cues already.
-		clock
-		.on('stop', function(clock, time) {
-			this.uncue(trigger);
-		});
-
-		function trigger(time, type, number) {
-			var listeners = getListeners(sequence).slice();
-			var fn, childSequence, duration;
-
-			// Sequence control events are listened to by the sequencer and
-			// are not retransmitted
-			if (type === 'sequence') {
-				spawn.apply(null, arguments);
-			}
-			else if (type === 'stop') {
-				sequence.stop(time);
-			}
-			else {
-				for (fn of listeners) {
-					fn.apply(sequence, arguments);
-				}
-			}
-
-			// Keep a record of current noteons
-			if (type === "noteon") {
-				sequence.notes[number] = true;
-			}
-			else if (type === "noteoff") {
-				delete sequence.notes[number];
-			}
-		}
 
 		data = data.slice();
 
 		// Set up sequence as a collection.
-		Collection.call(this, data || []);
+		Collection.call(this, data || [], collectionSettings);
 
-		Object.defineProperties(this, {
-			clock: { value: clock },
-			startBeat: { get: function() { return startBeat; }}
-		});
-
-		assign(this, {
-			start: function(beat) {
-				startBeat = isDefined(beat) ? beat : this.clock.beat ;
-
-				var l = this.length;
-				var n = -1;
-				var e;
-
-				while (++n < l) {
-					e = this[n];
-					cue(sequence, e, trigger);
-				}
-
-				this.playing = true;
-				Collection.prototype.trigger.call(this, 'start', beat);
-
-				//for (e of this) {
-				//	this.cue(e[0], trigger, e[1], e[2], e[3], e[4], e[5], e[6]);
-				//}
-
-				//deleteTimesAfterBeat(this, 0);
-				//recueAfterBeat(cues, this, 0);
-				//this.trigger('start', starttime);
-				return this;
-			},
-
-			stop: function(time) {
-				this.uncue(trigger);
-
-				var notes = this.notes;
-
-				// Stop currently playing notes
-				this.cue(this.beat, function(time) {
-					var number;
-
-					for (number in notes) {
-						number = parseInt(number);
-						trigger(time, "noteoff", number);
-					}
-				});
-
-				startBeat = undefined;
-				this.playing = false;
-				Collection.prototype.trigger.call(this, 'stop', time);
-			}
-		});
-
-		this
-		.on('add', function(sequence, e) {
-			if (e[0] >= this.beat) {
-				cue(sequence, e, trigger);
-			}
-		})
-		.on('remove', function(sequence, e) {
-			if (e[0] >= this.beat) {
-				uncue(sequence, e, trigger);
-			}
-		});
+		this.clock = clock;
+		this.startTime = undefined;
 	}
 
-	Object.defineProperties(assign(EnvelopeSequence.prototype, Clock.prototype), {});
+	assign(EnvelopeSequence.prototype, {
+		subscribe: function(fn) {
+			var listeners = getListeners(this);
+
+			if (listeners.indexOf(fn) === -1) {
+				listeners.push(fn);
+			}
+
+			return this;
+		},
+
+		unsubscribe: function(fn) {
+			var listeners = getListeners(this);
+			var i = listeners.indexOf(fn);
+
+			if (i > -1) {
+				listeners.splice(i, 1);
+			}
+
+			return this;
+		},
+
+		start: function(time) {
+			this.startTime = isDefined(time) ? time : this.clock.time ;
+
+			var l = this.length;
+			var n = -1;
+			var e;
+
+			while (++n < l) {
+				e = this[n];
+				this.cue(e[0], publish, e, this);
+			}
+
+			return this;
+		},
+
+		stop: function(time) {
+			this.uncue(publish);
+			startBeat = undefined;
+		},
+
+		cue: function(time, fn) {
+			this.clock.cue.apply(this.clock, arguments);
+			return this;
+		},
+
+		uncue: function(time, fn) {
+			this.clock.uncue(time, fn);
+			return this;
+		}
+	});
 
 	window.EnvelopeSequence = EnvelopeSequence;
 })(window);

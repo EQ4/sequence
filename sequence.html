@@ -38,7 +38,7 @@ var sequence = new Sequence(clock, [
 // Set the base tempo to 100bpm
 clock.rate = 1.666666667;
 
-sequence.plug(function(time, type, number, velocity) {
+sequence.subscribe(function(time, type, number, velocity) {
     console.log(time, type, number, velocity);
 });
 
