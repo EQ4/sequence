@@ -407,15 +407,18 @@
 		stop: function(time) {
 			this.uncue(publish);
 			startBeat = undefined;
+			return this;
 		},
 
 		cue: function(time, fn) {
-			this.clock.cue.apply(this.clock, arguments);
+			arguments[0] = this.startTime + time;
+			this.clock.cueTime.apply(this.clock, arguments);
 			return this;
 		},
 
 		uncue: function(time, fn) {
-			this.clock.uncue(time, fn);
+			arguments[0] = this.startTime + time;
+			this.clock.uncueTime(time, fn);
 			return this;
 		}
 	});
