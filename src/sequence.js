@@ -98,6 +98,7 @@
 
 	function getEventDuration(e) {
 		return e[1] === "note" ? e[4] :
+			e[1] === "param" ? e[5] || 0 :
 			e[1] === "sequence" ? getSequenceDuration(e[2]) :
 			0 ;
 	}
@@ -363,6 +364,11 @@
 	}), {
 		startTime: { get: function() { return this.clock.timeAtBeat(this.startBeat); } },
 		beat: { get: function() { return beatAtClockBeat(this, this.clock.beat); } }
+	});
+
+	assign(Sequence, {
+		getEventDuration: getEventDuration,
+		getSequenceDuration: getSequenceDuration
 	});
 
 	window.Sequence = Sequence;
