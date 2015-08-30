@@ -388,6 +388,10 @@
 		}
 	}
 
+	// EnvelopeSequence is a read-only sequence supporting
+	// a subset of events, and optimised for fast set up so
+	// it can be used for, say, note envelopes.
+
 	function EnvelopeSequence(clock, data) {
 		if (this === undefined || this === window) {
 			// If this is undefined the constructor has been called without the
@@ -395,13 +399,13 @@
 			return new EnvelopeSequence(clock, data);
 		}
 
-		var audio = clock.audio;
+		data = data ? data.slice() : [] ;
 
-		data = data.slice();
-
-		// Set up sequence as a collection.
-		Collection.call(this, data || [], collectionSettings);
-
+		// This is a read-only collection, so we don't need
+		// to call Collection() on it, just copy the events
+		// and length.
+		assign(this, data);
+		this.length = data.length;
 		this.clock = clock;
 		this.startTime = undefined;
 	}
