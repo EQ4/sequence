@@ -112,6 +112,8 @@
 		var audio = clock.audio;
 		var options = assign({}, defaults, settings);
 
+		data = data ? data.slice() : [] ;
+
 		var rateNode     = audio.createGain();
 		var durationNode = audio.createGain();
 
@@ -224,9 +226,8 @@
 			if (event === sequence[sequence.length - 1]) {
 				// Find the end time of the sequence
 				var duration = getSequenceDuration(sequence);
-console.log(Math.ceil(duration));
+
 				sequence.cue(Math.ceil(duration), function(time) {
-					console.log(time);
 					sequence.stop(time);
 				});
 			}
@@ -239,11 +240,10 @@ console.log(Math.ceil(duration));
 			Collection.prototype.trigger.call(sequence, 'stop', time);
 		}
 
-		data = data.slice();
 		mergeNoteEvents(data);
 
 		// Set up sequence as a collection.
-		Collection.call(this, data || [], collectionSettings);
+		Collection.call(this, data, collectionSettings);
 
 		Object.defineProperties(this, {
 			clock: { value: clock },
