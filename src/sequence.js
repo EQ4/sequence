@@ -28,7 +28,7 @@
 		return a[0] > b[0];
 	}
 
-	function getListeners(object) {
+	function getSubscribers(object) {
 		if (!object.subscribers) {
 			Object.defineProperty(object, 'subscribers', { value: [] });
 		}
@@ -79,6 +79,27 @@
 		else {
 			sequence.uncue(e[0], trigger);
 		}
+	}
+
+	function getSequenceDuration(sequence) {
+		var duration = 0;
+		var n = sequence.length;
+		var e, t;
+
+		while (n--) {
+			e = sequence[n];
+			t = e[0] + getEventDuration(e);
+
+			if (t > duration) { duration = t; }
+		}
+
+		return duration;
+	}
+
+	function getEventDuration(e) {
+		return e[1] === "note" ? e[4] :
+			e[1] === "sequence" ? getSequenceDuration(e[2]) :
+			0 ;
 	}
 
 	function Sequence(clock, data, settings) {
@@ -160,9 +181,13 @@
 		}
 
 		function publish(time, event, sequence) {
-			var listeners = getListeners(sequence).slice();
+			// Remember we are 50ms ahead of the event at this point, so we're
+			// not necessarily time critical, although we don't want to be doing
+			// too much.
+
 			var e = event.slice();
-			var fn, childSequence, duration;
+			var subscribers = getSubscribers(sequence).slice();
+			var fn;
 
 			// Set the time in absolute time
 			e[0] = time;
@@ -173,13 +198,15 @@
 			}
 
 			// Sequence control events are listened to by the sequencer and
-			// are not retransmitted
+			// are not transmitted to subscribers
 			if (e[1] === 'sequence') {
 				spawn.apply(null, e);
 			}
+
+			// All other events call the subscribers
 			else {
-				for (fn of listeners) {
-					// Call fn(time, type, data...)
+				for (fn of subscribers) {
+					// Call fn(time, type, data...) with sequence as context
 					fn.apply(sequence, e);
 				}
 			}
@@ -187,11 +214,29 @@
 			// Keep a record of current noteons
 			// TODO: Sort this out!
 			if (e[1] === "note" || e[1] === "noteon") {
-				sequence.notes[e[2]] = true;
+				sequence.notes[e[2]] = event;
 			}
 			else if (e[1] === "noteoff") {
 				delete sequence.notes[e[2]];
 			}
+
+			// The last event in sequence cues the sequence to stop
+			if (event === sequence[sequence.length - 1]) {
+				// Find the end time of the sequence
+				var duration = getSequenceDuration(sequence);
+console.log(Math.ceil(duration));
+				sequence.cue(Math.ceil(duration), function(time) {
+					console.log(time);
+					sequence.stop(time);
+				});
+			}
+		}
+
+		function stop(sequence, time) {
+			sequence.uncue(publish);
+			startBeat = undefined;
+			sequence.playing = false;
+			Collection.prototype.trigger.call(sequence, 'stop', time);
 		}
 
 		data = data.slice();
@@ -234,22 +279,16 @@
 			stop: function(time) {
 				var sequence = this;
 				var notes = this.notes;
+				var t = time - audio.currentTime;
 
-				this.uncue(publish);
-
-//				// Stop currently playing notes
-//				this.cue(this.beat, function(time) {
-//					var number;
-//
-//					for (number in notes) {
-//						number = parseInt(number);
-//						publish(time, [time, "noteoff", number], sequence);
-//					}
-//				});
-
-				startBeat = undefined;
-				this.playing = false;
-				Collection.prototype.trigger.call(this, 'stop', time);
+				if (t < 0.01) {
+					stop(sequence, time);
+				}
+				else {
+					setTimeout(function() {
+						stop(sequence, time);
+					}, t * 1000);
+				}
 			}
 		});
 
@@ -268,21 +307,21 @@
 
 	Object.defineProperties(assign(Sequence.prototype, Clock.prototype, {
 		subscribe: function(fn) {
-			var listeners = getListeners(this);
+			var subscribers = getSubscribers(this);
 
-			if (listeners.indexOf(fn) === -1) {
-				listeners.push(fn);
+			if (subscribers.indexOf(fn) === -1) {
+				subscribers.push(fn);
 			}
 
 			return this;
 		},
 
 		unsubscribe: function(fn) {
-			var listeners = getListeners(this);
-			var i = listeners.indexOf(fn);
+			var subscribers = getSubscribers(this);
+			var i = subscribers.indexOf(fn);
 
 			if (i > -1) {
-				listeners.splice(i, 1);
+				subscribers.splice(i, 1);
 			}
 
 			return this;
@@ -337,13 +376,13 @@
 
 
 	function publish(time, event, sequence) {
-		var listeners = getListeners(sequence).slice();
+		var subscribers = getSubscribers(sequence).slice();
 		var e = event.slice();
 		var fn;
 
 		e[0] = time;
 
-		for (fn of listeners) {
+		for (fn of subscribers) {
 			// Call fn(time, type, data...)
 			fn.apply(sequence, e);
 		}
@@ -369,21 +408,21 @@
 
 	assign(EnvelopeSequence.prototype, {
 		subscribe: function(fn) {
-			var listeners = getListeners(this);
+			var subscribers = getSubscribers(this);
 
-			if (listeners.indexOf(fn) === -1) {
-				listeners.push(fn);
+			if (subscribers.indexOf(fn) === -1) {
+				subscribers.push(fn);
 			}
 
 			return this;
 		},
 
 		unsubscribe: function(fn) {
-			var listeners = getListeners(this);
-			var i = listeners.indexOf(fn);
+			var subscribers = getSubscribers(this);
+			var i = subscribers.indexOf(fn);
 
 			if (i > -1) {
-				listeners.splice(i, 1);
+				subscribers.splice(i, 1);
 			}
 
 			return this;
