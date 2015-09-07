@@ -136,8 +136,8 @@
 			rate: {
 				set: function(value, time, duration, curve) {
 					// For the time being, only support step changes to tempo
-					AudioObject.automate(rateNode.gain, value, time, duration, curve);
-					AudioObject.automate(durationNode.gain, 1 / value, time, duration, curve);
+					AudioObject.automate(rateNode.gain, time, value, curve, duration);
+					AudioObject.automate(durationNode.gain, time, 1 / value, curve, duration);
 
 					// A tempo change must be created where rate has been set
 					// externally. Calls to addRate from within clock should
