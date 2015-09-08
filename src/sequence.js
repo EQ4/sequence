@@ -455,7 +455,6 @@
 
 		stop: function(time) {
 			this.uncue(publish);
-			startBeat = undefined;
 			return this;
 		},
 
