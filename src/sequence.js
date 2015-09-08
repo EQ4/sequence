@@ -17,15 +17,15 @@
 	};
 
 	var collectionSettings = {
-		sort: byTime
+		sort: by0
 	};
 
 	function isDefined(val) {
 		return val !== undefined && val !== null;
 	}
 
-	function byTime(a, b) {
-		return a[0] > b[0];
+	function by0(a, b) {
+		return a[0] > b[0] ? 1 : a[0] < b[0] ? -1 : 0 ;
 	}
 
 	function getSubscribers(object) {
