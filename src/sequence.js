@@ -134,7 +134,7 @@
 			duration: durationNode,
 		}, {
 			rate: {
-				set: function(value, time, duration, curve) {
+				set: function(value, time, curve, duration) {
 					// For the time being, only support step changes to tempo
 					AudioObject.automate(rateNode.gain, time, value, curve, duration);
 					AudioObject.automate(durationNode.gain, time, 1 / value, curve, duration);
