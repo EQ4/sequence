@@ -1,4 +1,4 @@
-# soundio-sequencer
+# Soundio Sequence
 
 Experimental sequencer for [sound.io](http://github.com/soundio).
 
