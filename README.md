@@ -1,14 +1,9 @@
-# soundio-sequencer
+# Sequence
 
-Experimental sequencer for [sound.io](http://github.com/soundio).
+Sequence object for [sound.io](http://github.com/soundio).
 
-    git clone https://github.com/grimborg/soundio-sequencer
-    cd soundio-sequencer
-    git clone https://github.com/soundio/soundio
-    cd soundio
-    git submodule update --init
-    cd ..
-    open index.html
+    git clone https://github.com/soundio/sequence
+    cd sequence
 
 See [index.html](https://github.com/grimborg/soundio-sequencer/blob/master/index.html) for an example.
 
