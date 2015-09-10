@@ -1,4 +1,4 @@
-# Soundio Sequence
+# Sequence
 
 Sequence object for [sound.io](http://github.com/soundio).
 
