@@ -13,12 +13,15 @@
 	var assign = Object.assign;
 
 	var defaults = {
-		rate: 1
+		rate: 1,
+		resolve: noop
 	};
 
 	var collectionSettings = {
 		sort: by0
 	};
+
+	function noop() {}
 
 	function isDefined(val) {
 		return val !== undefined && val !== null;
@@ -165,22 +168,35 @@
 		// this sequence's cues already.
 		clock
 		.on('stop', function(clock, time) {
-			this.uncue(trigger);
+			this.uncue(publish);
 			startBeat = undefined;
 		});
 
-		function spawn(time, type, data, rate) {
-			var settings = {};
+		function spawn(time, type, data, rate, path) {
+			var childSettings = assign({}, options, { rate: rate || 1 });
+			var childSequence = new Sequence(sequence, data, childSettings);
+console.log('SPAWN', type, path);
+			// Where there is a path, use the resolver to subscribe the thing
+			// at the end of the path to the childSequence
+			if (path) {
+				options.resolve(childSequence, path);
+			}
 
-			if (rate) { settings.rate = rate; }
+			// Where there is no path it's events are emitted by the parent
+			else {
+				childSequence.subscribe(function() {
+					var subscribers = getSubscribers(sequence).slice();
+					var fn;
 
-			var childSequence = new Sequence(sequence, data, settings);
+					for (fn of subscribers) {
+						// Call fn(time, type, data...) with sequence as context
+						fn.apply(sequence, arguments);
+					}
+				});
+			}
 
-			// Listen to children's events and retrigger them
-			childSequence.subscribe(trigger);
 			childSequence.start(sequence.beatAtTime(time));
-
-			sequence.trigger("spawn", childSequence);
+			// sequence.trigger("spawn", childSequence);
 		}
 
 		function publish(time, event, sequence) {
@@ -223,9 +239,9 @@
 				delete sequence.notes[e[2]];
 			}
 
-			// The last event in sequence cues the sequence to stop
+			// The last event in sequence cues the sequence
+			// to stop on the next beat
 			if (event === sequence[sequence.length - 1]) {
-				// Find the end time of the sequence
 				var duration = getSequenceDuration(sequence);
 
 				sequence.cue(Math.ceil(duration), function(time) {
