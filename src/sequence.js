@@ -175,7 +175,7 @@
 		function spawn(time, type, data, rate, path) {
 			var childSettings = assign({}, options, { rate: rate || 1 });
 			var childSequence = new Sequence(sequence, data, childSettings);
-console.log('SPAWN', type, path);
+
 			// Where there is a path, use the resolver to subscribe the thing
 			// at the end of the path to the childSequence
 			if (path) {
@@ -201,8 +201,8 @@ console.log('SPAWN', type, path);
 
 		function publish(time, event, sequence) {
 			// Remember we are 50ms ahead of the event at this point, so we're
-			// not necessarily time critical, although we don't want to be doing
-			// too much.
+			// not necessarily time critical, although we don't want to be
+			// arseing about too much.
 
 			var e = event.slice();
 			var subscribers = getSubscribers(sequence).slice();
